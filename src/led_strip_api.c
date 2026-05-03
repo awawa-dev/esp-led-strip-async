@@ -3,6 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+  /*
+ * Modified by @awawa-dev
+ * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ */
+
 #include "esp_log.h"
 #include "esp_check.h"
 #include "led_strip.h"
@@ -144,4 +150,10 @@ esp_err_t led_strip_del(led_strip_handle_t strip)
 {
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     return strip->del(strip);
+}
+
+bool led_strip_is_rendering_done(led_strip_handle_t strip)
+{
+    ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return strip->is_rendering_done(strip);
 }

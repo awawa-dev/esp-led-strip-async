@@ -1,3 +1,12 @@
+# Asynchronous LED Strip Driver (Fork)
+
+This is a high-performance, non-blocking fork of the official [Espressif LED Strip Driver](https://components.espressif.com/components/espressif/led_strip). 
+
+### Why this fork?
+Standard version blocks the execution thread while waiting for the RMT/SPI transmission to finish. This version introduces an **asynchronous approach**, allowing your application to handle other tasks (like network processing or complex math) while the hardware pushes data to the LEDs.
+
+Developed specifically for the [Hyperk](https://github.com/awawa-dev/Hyperk) controller to ensure maximum frame rates and minimal CPU overhead.
+
 # LED Strip Driver
 
 [![Component Registry](https://components.espressif.com/components/espressif/led_strip/badge.svg)](https://components.espressif.com/components/espressif/led_strip)

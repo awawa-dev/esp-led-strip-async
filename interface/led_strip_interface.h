@@ -3,6 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+  /*
+ * Modified by @awawa-dev
+ * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ */
+
 #pragma once
 
 #include <stdint.h>
@@ -88,6 +94,8 @@ struct led_strip_t {
      *      - ESP_FAIL: Free resources failed because error occurred
      */
     esp_err_t (*del)(led_strip_t *strip);
+
+    bool (*is_rendering_done)(led_strip_t *strip);
 };
 
 #ifdef __cplusplus

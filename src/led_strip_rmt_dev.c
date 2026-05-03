@@ -3,6 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+  /*
+ * Modified by @awawa-dev
+ * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
@@ -31,7 +37,8 @@ typedef struct {
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
     led_color_component_format_t component_fmt;
-    uint8_t pixel_buf[];
+    volatile bool is_rendering;
+    uint8_t pixel_buf[];    
 } led_strip_rmt_obj;
 
 static esp_err_t led_strip_rmt_set_pixel(led_strip_t *strip, uint32_t index, uint32_t red, uint32_t green, uint32_t blue)
@@ -83,13 +90,17 @@ static esp_err_t led_strip_rmt_refresh(led_strip_t *strip)
     rmt_transmit_config_t tx_conf = {
         .loop_count = 0,
     };
+    
+    rmt_strip->is_rendering = true;
+    esp_err_t result = rmt_transmit(rmt_strip->rmt_chan, rmt_strip->strip_encoder, rmt_strip->pixel_buf,
+                                     rmt_strip->strip_len * rmt_strip->bytes_per_pixel, &tx_conf);
+    
+    if (result != ESP_OK){
+        rmt_strip->is_rendering = false;
+        ESP_LOGE(TAG, "transmit pixels by RMT failed");
+    }
 
-    ESP_RETURN_ON_ERROR(rmt_enable(rmt_strip->rmt_chan), TAG, "enable RMT channel failed");
-    ESP_RETURN_ON_ERROR(rmt_transmit(rmt_strip->rmt_chan, rmt_strip->strip_encoder, rmt_strip->pixel_buf,
-                                     rmt_strip->strip_len * rmt_strip->bytes_per_pixel, &tx_conf), TAG, "transmit pixels by RMT failed");
-    ESP_RETURN_ON_ERROR(rmt_tx_wait_all_done(rmt_strip->rmt_chan, -1), TAG, "flush RMT channel failed");
-    ESP_RETURN_ON_ERROR(rmt_disable(rmt_strip->rmt_chan), TAG, "disable RMT channel failed");
-    return ESP_OK;
+    return result;
 }
 
 static esp_err_t led_strip_rmt_clear(led_strip_t *strip)
@@ -103,10 +114,25 @@ static esp_err_t led_strip_rmt_clear(led_strip_t *strip)
 static esp_err_t led_strip_rmt_del(led_strip_t *strip)
 {
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    ESP_RETURN_ON_ERROR(rmt_disable(rmt_strip->rmt_chan), TAG, "disable RMT channel failed");
     ESP_RETURN_ON_ERROR(rmt_del_channel(rmt_strip->rmt_chan), TAG, "delete RMT channel failed");
     ESP_RETURN_ON_ERROR(rmt_del_encoder(rmt_strip->strip_encoder), TAG, "delete strip encoder failed");
     free(rmt_strip);
     return ESP_OK;
+}
+
+static bool IRAM_ATTR led_strip_rmt_tx_done_cb(rmt_channel_handle_t tx_chan, const rmt_tx_done_event_data_t *edata, void *user_ctx)
+{
+    led_strip_rmt_obj *rmt_strip = (led_strip_rmt_obj *)user_ctx;
+    rmt_strip->is_rendering = false; 
+    return false; 
+}
+
+static bool led_strip_rmt_is_rendering_done(led_strip_t *strip)
+{
+    led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+
+    return !rmt_strip->is_rendering;
 }
 
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip)
@@ -167,6 +193,13 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     };
     ESP_GOTO_ON_ERROR(rmt_new_tx_channel(&rmt_chan_config, &rmt_strip->rmt_chan), err, TAG, "create RMT TX channel failed");
 
+    rmt_tx_event_callbacks_t cbs = {
+        .on_trans_done = led_strip_rmt_tx_done_cb,
+    };
+    ESP_GOTO_ON_ERROR(rmt_tx_register_event_callbacks(rmt_strip->rmt_chan, &cbs, rmt_strip), err, TAG, "register RMT callback failed");
+    
+    ESP_GOTO_ON_ERROR(rmt_enable(rmt_strip->rmt_chan), err, TAG, "enable RMT channel failed");
+
     led_strip_encoder_config_t strip_encoder_conf = {
         .resolution = resolution,
         .led_model = led_config->led_model
@@ -181,12 +214,16 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.refresh = led_strip_rmt_refresh;
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
+    rmt_strip->base.is_rendering_done = led_strip_rmt_is_rendering_done;
+
+    rmt_strip->is_rendering = false;
 
     *ret_strip = &rmt_strip->base;
     return ESP_OK;
 err:
     if (rmt_strip) {
         if (rmt_strip->rmt_chan) {
+            rmt_disable(rmt_strip->rmt_chan);
             rmt_del_channel(rmt_strip->rmt_chan);
         }
         if (rmt_strip->strip_encoder) {

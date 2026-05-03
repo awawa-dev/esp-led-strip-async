@@ -3,6 +3,12 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+  /*
+ * Modified by @awawa-dev
+ * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
@@ -29,7 +35,10 @@ typedef struct {
     uint32_t strip_len;
     uint8_t bytes_per_pixel;
     led_color_component_format_t component_fmt;
-    uint8_t pixel_buf[];
+    volatile bool is_transfering;
+    int64_t next_frame_allowed_at;
+    spi_transaction_t tx_conf;
+    uint8_t pixel_buf[];    
 } led_strip_spi_obj;
 
 // please make sure to zero-initialize the buf before calling this function
@@ -97,15 +106,22 @@ static esp_err_t led_strip_spi_set_pixel_rgbw(led_strip_t *strip, uint32_t index
 static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
 {
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
-    spi_transaction_t tx_conf;
-    memset(&tx_conf, 0, sizeof(tx_conf));
+    memset(&spi_strip->tx_conf, 0, sizeof(spi_strip->tx_conf));
 
-    tx_conf.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
-    tx_conf.tx_buffer = spi_strip->pixel_buf;
-    tx_conf.rx_buffer = NULL;
-    ESP_RETURN_ON_ERROR(spi_device_transmit(spi_strip->spi_device, &tx_conf), TAG, "transmit pixels by SPI failed");
+    spi_strip->tx_conf.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
+    spi_strip->tx_conf.tx_buffer = spi_strip->pixel_buf;
+    spi_strip->tx_conf.rx_buffer = NULL;
+    spi_strip->tx_conf.user = (void *)spi_strip;
+    spi_strip->is_transfering = true;
+    spi_strip->next_frame_allowed_at = INT64_MAX;
+    esp_err_t result = spi_device_queue_trans(spi_strip->spi_device, &spi_strip->tx_conf, portMAX_DELAY);
+    if (result != ESP_OK){
+        spi_strip->is_transfering = false;
+        spi_strip->next_frame_allowed_at = 0;
+        ESP_LOGE(TAG, "transmit pixels by SPI failed");
+    }
 
-    return ESP_OK;
+    return result;
 }
 
 static esp_err_t led_strip_spi_clear(led_strip_t *strip)
@@ -131,6 +147,30 @@ static esp_err_t led_strip_spi_del(led_strip_t *strip)
 
     free(spi_strip);
     return ESP_OK;
+}
+
+static bool led_strip_spi_is_rendering_done(led_strip_t *strip)
+{
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+
+    if (spi_strip->is_transfering || spi_strip->next_frame_allowed_at > esp_timer_get_time()) 
+        return false;    
+    
+    if (spi_strip->next_frame_allowed_at) {
+        spi_transaction_t *p_trans;
+        spi_device_get_trans_result(spi_strip->spi_device, &p_trans, 0);
+        spi_strip->next_frame_allowed_at = 0;
+    }
+
+    return true;
+}
+
+static void IRAM_ATTR led_strip_spi_tx_done_cb(spi_transaction_t *trans)
+{
+    led_strip_spi_obj *spi_strip = (led_strip_spi_obj *)trans->user;
+
+    spi_strip->next_frame_allowed_at = esp_timer_get_time() + 300;
+    spi_strip->is_transfering = false;
 }
 
 esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const led_strip_spi_config_t *spi_config, led_strip_handle_t *ret_strip)
@@ -206,6 +246,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         //set -1 when CS is not used
         .spics_io_num = -1,
         .queue_size = LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE,
+        .post_cb = led_strip_spi_tx_done_cb,
     };
 
     ESP_GOTO_ON_ERROR(spi_bus_add_device(spi_strip->spi_host, &spi_dev_cfg, &spi_strip->spi_device), err, TAG, "Failed to add spi device");
@@ -231,6 +272,11 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.refresh = led_strip_spi_refresh;
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
+    spi_strip->base.is_rendering_done = led_strip_spi_is_rendering_done;
+
+    spi_strip->is_transfering = false;
+    spi_strip->next_frame_allowed_at = 0;
+    memset(&spi_strip->tx_conf, 0, sizeof(spi_strip->tx_conf));
 
     *ret_strip = &spi_strip->base;
     return ESP_OK;
