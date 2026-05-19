@@ -9,6 +9,11 @@
  * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
  */
 
+ /*
+ * Modified by @awawa-dev
+ * Changes: added method to return RMT channel
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <sys/cdefs.h>
@@ -232,4 +237,10 @@ err:
         free(rmt_strip);
     }
     return ret;
+}
+
+rmt_channel_handle_t led_strip_rmt_get_channel(led_strip_handle_t strip)
+{
+    led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    return rmt_strip->rmt_chan;
 }

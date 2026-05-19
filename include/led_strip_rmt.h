@@ -3,6 +3,10 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+/*
+ * Modified by @awawa-dev
+ * Changes: added method to return RMT channel
+ */
 #pragma once
 
 #include <stdint.h>
@@ -41,6 +45,8 @@ typedef struct {
  *      - ESP_FAIL: create LED strip handle failed because some other error
  */
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip);
+
+rmt_channel_handle_t led_strip_rmt_get_channel(led_strip_handle_t strip);
 
 #ifdef __cplusplus
 }
