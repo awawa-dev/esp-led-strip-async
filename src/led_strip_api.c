@@ -7,6 +7,7 @@
   /*
  * Modified by @awawa-dev
  * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ * Returns info if is in SPI mode
  */
 
 #include "esp_log.h"
@@ -156,4 +157,10 @@ bool led_strip_is_rendering_done(led_strip_handle_t strip)
 {
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
     return strip->is_rendering_done(strip);
+}
+
+bool led_strip_is_spi_mode(led_strip_handle_t strip)
+{
+    ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
+    return strip->is_spi_mode;
 }

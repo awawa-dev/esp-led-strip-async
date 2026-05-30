@@ -12,6 +12,7 @@
  /*
  * Modified by @awawa-dev
  * Changes: added method to return RMT channel
+ * Returns info if is in SPI mode
  */
 
 #include <stdlib.h>
@@ -220,6 +221,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
     rmt_strip->base.is_rendering_done = led_strip_rmt_is_rendering_done;
+    rmt_strip->base.is_spi_mode = false;
 
     rmt_strip->is_rendering = false;
 

@@ -7,6 +7,7 @@
   /*
  * Modified by @awawa-dev
  * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ * Returns info if is in SPI mode
  */
 
 #pragma once
@@ -125,6 +126,8 @@ esp_err_t led_strip_clear(led_strip_handle_t strip);
 esp_err_t led_strip_del(led_strip_handle_t strip);
 
 bool led_strip_is_rendering_done(led_strip_handle_t strip);
+
+bool led_strip_is_spi_mode(led_strip_handle_t strip);
 
 #ifdef __cplusplus
 }

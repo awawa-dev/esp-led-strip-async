@@ -9,6 +9,7 @@
  * Changes:
  * SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
  * Added option to create and get custom SPI raw buffer and actual SPI speed
+ * Returns info if is in SPI mode
  */
 
 #include <stdlib.h>
@@ -277,6 +278,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
     spi_strip->base.is_rendering_done = led_strip_spi_is_rendering_done;
+    spi_strip->base.is_spi_mode = true;
 
     spi_strip->is_transfering = false;
     spi_strip->next_frame_allowed_at = 0;
@@ -299,7 +301,7 @@ err:
 
 uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip)
 {
-    if (strip == NULL) return NULL;
+    if (strip == NULL || !strip->is_spi_mode) return NULL;
 
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
     return spi_strip->pixel_buf;
@@ -307,7 +309,7 @@ uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip)
 
 int led_strip_get_spi_actual_speed(led_strip_handle_t strip)
 {
-    if (strip == NULL) return 0;
+    if (strip == NULL || !strip->is_spi_mode) return 0;
 
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
     int clock_resolution_khz = 0;
