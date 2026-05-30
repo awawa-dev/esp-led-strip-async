@@ -3,6 +3,14 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+
+   /*
+ * Modified by @awawa-dev
+ * Changes:
+ * added option to create and get custom SPI raw buffer and actual SPI speed
+ */
+
+
 #pragma once
 
 #include <stdint.h>
@@ -20,6 +28,8 @@ extern "C" {
 typedef struct {
     spi_clock_source_t clk_src; /*!< SPI clock source */
     spi_host_device_t spi_bus;  /*!< SPI bus ID. Which buses are available depends on the specific chip */
+    uint32_t spi_clock_speed;
+    size_t requested_buffer_size;
     struct {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
     } flags;                    /*!< Extra driver flags */
@@ -41,6 +51,9 @@ typedef struct {
  *      - ESP_FAIL: create LED strip handle failed because some other error
  */
 esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const led_strip_spi_config_t *spi_config, led_strip_handle_t *ret_strip);
+
+uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip);
+int led_strip_get_spi_actual_speed(led_strip_handle_t strip);
 
 #ifdef __cplusplus
 }

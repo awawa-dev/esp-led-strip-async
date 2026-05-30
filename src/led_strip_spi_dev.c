@@ -6,7 +6,9 @@
 
   /*
  * Modified by @awawa-dev
- * Changes: SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ * Changes:
+ * SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
+ * Added option to create and get custom SPI raw buffer and actual SPI speed
  */
 
 #include <stdlib.h>
@@ -210,7 +212,8 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         // DMA buffer must be placed in internal SRAM
         mem_caps |= MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA;
     }
-    spi_strip = heap_caps_calloc(1, sizeof(led_strip_spi_obj) + led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE, mem_caps);
+    size_t requestedLedMemory = (spi_config->requested_buffer_size) ? spi_config->requested_buffer_size:  led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE;
+    spi_strip = heap_caps_calloc(1, sizeof(led_strip_spi_obj) + requestedLedMemory, mem_caps);
 
     ESP_GOTO_ON_FALSE(spi_strip, ESP_ERR_NO_MEM, err, TAG, "no mem for spi strip");
 
@@ -236,12 +239,13 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         esp_rom_gpio_connect_out_signal(led_config->strip_gpio_num, spi_periph_signal[spi_strip->spi_host].spid_out, true, false);
     }
 
+    int spiSpeed = (spi_config->spi_clock_speed) ? spi_config->spi_clock_speed : LED_STRIP_SPI_DEFAULT_RESOLUTION;
     spi_device_interface_config_t spi_dev_cfg = {
         .clock_source = clk_src,
         .command_bits = 0,
         .address_bits = 0,
         .dummy_bits = 0,
-        .clock_speed_hz = LED_STRIP_SPI_DEFAULT_RESOLUTION,
+        .clock_speed_hz = spiSpeed,
         .mode = 0,
         //set -1 when CS is not used
         .spics_io_num = -1,
@@ -257,7 +261,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     // TODO: ideally we should decide the SPI_BYTES_PER_COLOR_BYTE by the real clock resolution
     // But now, let's fixed the resolution, the downside is, we don't support a clock source whose frequency is not multiple of LED_STRIP_SPI_DEFAULT_RESOLUTION
     // clock_resolution between 2.2MHz to 2.8MHz is supported
-    ESP_GOTO_ON_FALSE((clock_resolution_khz < LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 + 300) && (clock_resolution_khz > LED_STRIP_SPI_DEFAULT_RESOLUTION / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
+    ESP_GOTO_ON_FALSE((clock_resolution_khz < spiSpeed / 1000 + 300) && (clock_resolution_khz > spiSpeed / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
     if (led_config->led_model != LED_MODEL_WS2812) {
@@ -291,4 +295,22 @@ err:
         free(spi_strip);
     }
     return ret;
+}
+
+uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip)
+{
+    if (strip == NULL) return NULL;
+
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    return spi_strip->pixel_buf;
+}
+
+int led_strip_get_spi_actual_speed(led_strip_handle_t strip)
+{
+    if (strip == NULL) return 0;
+
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    int clock_resolution_khz = 0;
+    spi_device_get_actual_freq(spi_strip->spi_device, &clock_resolution_khz);
+    return clock_resolution_khz;
 }
