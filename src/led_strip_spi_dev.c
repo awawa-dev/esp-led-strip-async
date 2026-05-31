@@ -8,7 +8,7 @@
  * Modified by @awawa-dev
  * Changes:
  * SPI/RMT rendering(refresh) methods are now asynchronous + new API method is_rendering_done
- * Added option to create and get custom SPI raw buffer and actual SPI speed
+ * Added option to create and get custom SPI raw buffer and actual SPI speed, set clock pin
  * Returns info if is in SPI mode
  */
 
@@ -229,7 +229,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .mosi_io_num = led_config->strip_gpio_num,
         //Only use MOSI to generate the signal, set -1 when other pins are not used.
         .miso_io_num = -1,
-        .sclk_io_num = -1,
+        .sclk_io_num = (spi_config->flags.with_clock_output) ? spi_config->strip_clock_gpio_num :  -1,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .max_transfer_sz = led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE,
@@ -250,7 +250,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .mode = 0,
         //set -1 when CS is not used
         .spics_io_num = -1,
-        .queue_size = LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE,
+        .queue_size = (spi_config->flags.with_clock_output) ? 1 : LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE,
         .post_cb = led_strip_spi_tx_done_cb,
     };
 
@@ -265,7 +265,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     ESP_GOTO_ON_FALSE((clock_resolution_khz < spiSpeed / 1000 + 300) && (clock_resolution_khz > spiSpeed / 1000 - 300), ESP_ERR_NOT_SUPPORTED, err,
                       TAG, "unsupported clock resolution:%dKHz", clock_resolution_khz);
 
-    if (led_config->led_model != LED_MODEL_WS2812) {
+    if (led_config->led_model != LED_MODEL_WS2812 && !spi_config->flags.with_clock_output) {
         ESP_LOGW(TAG, "Only support WS2812. The timing requirements for other models may not be met");
     }
 

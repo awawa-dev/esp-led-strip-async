@@ -7,7 +7,7 @@
    /*
  * Modified by @awawa-dev
  * Changes:
- * added option to create and get custom SPI raw buffer and actual SPI speed
+ * added option to create and get custom SPI raw buffer and actual SPI speed, set clock pin
  */
 
 
@@ -30,8 +30,10 @@ typedef struct {
     spi_host_device_t spi_bus;  /*!< SPI bus ID. Which buses are available depends on the specific chip */
     uint32_t spi_clock_speed;
     size_t requested_buffer_size;
+    int strip_clock_gpio_num;    
     struct {
         uint32_t with_dma: 1;   /*!< Use DMA to transmit data */
+        uint32_t with_clock_output: 1;
     } flags;                    /*!< Extra driver flags */
 } led_strip_spi_config_t;
 
