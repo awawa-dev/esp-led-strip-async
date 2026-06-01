@@ -168,6 +168,14 @@ static bool led_strip_spi_is_rendering_done(led_strip_t *strip)
     return true;
 }
 
+static uint8_t* led_strip_get_spi_buffer(led_strip_t *strip)
+{
+    if (strip == NULL || !strip->is_spi_mode) return NULL;
+
+    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
+    return spi_strip->pixel_buf;
+}
+
 static void IRAM_ATTR led_strip_spi_tx_done_cb(spi_transaction_t *trans)
 {
     led_strip_spi_obj *spi_strip = (led_strip_spi_obj *)trans->user;
@@ -278,6 +286,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->base.clear = led_strip_spi_clear;
     spi_strip->base.del = led_strip_spi_del;
     spi_strip->base.is_rendering_done = led_strip_spi_is_rendering_done;
+    spi_strip->base.led_strip_get_internal_buffer = led_strip_get_spi_buffer;
     spi_strip->base.is_spi_mode = true;
 
     spi_strip->is_transfering = false;
@@ -297,14 +306,6 @@ err:
         free(spi_strip);
     }
     return ret;
-}
-
-uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip)
-{
-    if (strip == NULL || !strip->is_spi_mode) return NULL;
-
-    led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
-    return spi_strip->pixel_buf;
 }
 
 int led_strip_get_spi_actual_speed(led_strip_handle_t strip)

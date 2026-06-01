@@ -141,6 +141,14 @@ static bool led_strip_rmt_is_rendering_done(led_strip_t *strip)
     return !rmt_strip->is_rendering;
 }
 
+static uint8_t* led_strip_get_rmt_buffer(led_strip_t *strip)
+{
+    if (strip == NULL || !strip->is_spi_mode) return NULL;
+
+    led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
+    return rmt_strip->pixel_buf;
+}
+
 esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const led_strip_rmt_config_t *rmt_config, led_strip_handle_t *ret_strip)
 {
     led_strip_rmt_obj *rmt_strip = NULL;
@@ -221,6 +229,7 @@ esp_err_t led_strip_new_rmt_device(const led_strip_config_t *led_config, const l
     rmt_strip->base.clear = led_strip_rmt_clear;
     rmt_strip->base.del = led_strip_rmt_del;
     rmt_strip->base.is_rendering_done = led_strip_rmt_is_rendering_done;
+    rmt_strip->base.led_strip_get_internal_buffer = led_strip_get_rmt_buffer;
     rmt_strip->base.is_spi_mode = false;
 
     rmt_strip->is_rendering = false;

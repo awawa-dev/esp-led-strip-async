@@ -54,7 +54,6 @@ typedef struct {
  */
 esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const led_strip_spi_config_t *spi_config, led_strip_handle_t *ret_strip);
 
-uint8_t* led_strip_get_spi_buffer(led_strip_handle_t strip);
 int led_strip_get_spi_actual_speed(led_strip_handle_t strip);
 
 #ifdef __cplusplus

@@ -98,6 +98,8 @@ struct led_strip_t {
 
     bool (*is_rendering_done)(led_strip_t *strip);
 
+    uint8_t* (*led_strip_get_internal_buffer)(led_strip_t *strip);
+
     bool is_spi_mode;
 };
 

@@ -129,6 +129,8 @@ bool led_strip_is_rendering_done(led_strip_handle_t strip);
 
 bool led_strip_is_spi_mode(led_strip_handle_t strip);
 
+uint8_t* led_strip_get_internal_buffer(led_strip_handle_t strip);
+
 #ifdef __cplusplus
 }
 #endif
