@@ -143,7 +143,7 @@ static bool led_strip_rmt_is_rendering_done(led_strip_t *strip)
 
 static uint8_t* led_strip_get_rmt_buffer(led_strip_t *strip)
 {
-    if (strip == NULL || !strip->is_spi_mode) return NULL;
+    if (strip == NULL || strip->is_spi_mode) return NULL;
 
     led_strip_rmt_obj *rmt_strip = __containerof(strip, led_strip_rmt_obj, base);
     return rmt_strip->pixel_buf;
