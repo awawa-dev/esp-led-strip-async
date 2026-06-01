@@ -159,6 +159,15 @@ bool led_strip_is_rendering_done(led_strip_handle_t strip)
     return strip->is_rendering_done(strip);
 }
 
+uint8_t* led_strip_get_internal_buffer(led_strip_handle_t strip)
+{
+    if (!strip) {
+        ESP_LOGE(TAG, "invalid argument");
+        return NULL;
+    }
+    return strip->led_strip_get_internal_buffer(strip);    
+}
+
 bool led_strip_is_spi_mode(led_strip_handle_t strip)
 {
     ESP_RETURN_ON_FALSE(strip, ESP_ERR_INVALID_ARG, TAG, "invalid argument");
