@@ -27,7 +27,6 @@
 #define LED_STRIP_SPI_DEFAULT_TRANS_QUEUE_SIZE 4
 
 #define SPI_BYTES_PER_COLOR_BYTE 3
-#define SPI_BITS_PER_COLOR_BYTE (SPI_BYTES_PER_COLOR_BYTE * 8)
 
 static const char *TAG = "led_strip_spi";
 
@@ -41,6 +40,7 @@ typedef struct {
     volatile bool is_transfering;
     int64_t next_frame_allowed_at;
     spi_transaction_t tx_conf;
+    size_t requestedLedMemory;
     uint8_t pixel_buf[];    
 } led_strip_spi_obj;
 
@@ -111,7 +111,7 @@ static esp_err_t led_strip_spi_refresh(led_strip_t *strip)
     led_strip_spi_obj *spi_strip = __containerof(strip, led_strip_spi_obj, base);
     memset(&spi_strip->tx_conf, 0, sizeof(spi_strip->tx_conf));
 
-    spi_strip->tx_conf.length = spi_strip->strip_len * spi_strip->bytes_per_pixel * SPI_BITS_PER_COLOR_BYTE;
+    spi_strip->tx_conf.length = spi_strip->requestedLedMemory * 8;
     spi_strip->tx_conf.tx_buffer = spi_strip->pixel_buf;
     spi_strip->tx_conf.rx_buffer = NULL;
     spi_strip->tx_conf.user = (void *)spi_strip;
@@ -240,7 +240,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
         .sclk_io_num = (spi_config->flags.with_clock_output) ? spi_config->strip_clock_gpio_num :  -1,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = led_config->max_leds * bytes_per_pixel * SPI_BYTES_PER_COLOR_BYTE,
+        .max_transfer_sz = requestedLedMemory,
     };
     ESP_GOTO_ON_ERROR(spi_bus_initialize(spi_strip->spi_host, &spi_bus_cfg, spi_config->flags.with_dma ? SPI_DMA_CH_AUTO : SPI_DMA_DISABLED), err, TAG, "create SPI bus failed");
 
@@ -292,6 +292,7 @@ esp_err_t led_strip_new_spi_device(const led_strip_config_t *led_config, const l
     spi_strip->is_transfering = false;
     spi_strip->next_frame_allowed_at = 0;
     memset(&spi_strip->tx_conf, 0, sizeof(spi_strip->tx_conf));
+    spi_strip->requestedLedMemory = requestedLedMemory;
 
     *ret_strip = &spi_strip->base;
     return ESP_OK;
